@@ -1,0 +1,63 @@
+def Properties props = new Properties()
+def propFile = file('src/main/resources/versions.properties')
+println(propFile)
+props.load(new FileInputStream(propFile));
+
+group "it.water.gradle.plugins.workspace"
+version props.get("waterVersion")
+
+apply plugin: 'java-gradle-plugin'
+apply plugin: 'maven-publish'
+apply plugin: 'jacoco'
+apply plugin: 'java'
+
+sourceCompatibility = 11
+targetCompatibility = 11
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven {
+        name = 'ACSoftwareRepository'
+        url = "https://nexus.acsoftware.it/nexus/repository/maven-water/"
+    }
+}
+
+dependencies {
+    testImplementation('org.junit.jupiter:junit-jupiter:5.9.0')
+    testImplementation 'commons-io:commons-io:2.11.0'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = false
+    }
+}
+
+gradlePlugin {
+    plugins {
+        WaterWorkspaceGradlePlugin {
+            id = 'it.water.workspace'
+            implementationClass = 'it.water.gradle.plugins.workspace.WaterWorkspaceGradlePlugin'
+        }
+    }
+}
+
+publishing {
+    repositories {
+        mavenLocal()
+        maven {
+            credentials {
+                username System.getProperty("publishRepoUsername", "noUser")
+                password System.getProperty("publishRepoPassword", "noPassword")
+            }
+            name = 'ACSoftwareRepository'
+            url = "https://nexus.acsoftware.it/nexus/repository/maven-water/"
+        }
+    }
+}
