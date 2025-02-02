@@ -56,12 +56,23 @@ public class WaterGradleWorkspaceUtil {
 
     private static Properties loadWorkspaceProperties(Project rootProject) {
         //loaded from the current worskspace
+        String rootProjectPath = rootProject.getProjectDir().getAbsolutePath();
+        String projectCustomProperties = rootProjectPath + File.separator + "water-project-custom-props.properties";
+        String globalCustomProperties = rootProjectPath + File.separator + ".." + File.separator + "water-global-custom-props.properties";
+        Properties projectCustomProps = loadPropertiesFile(projectCustomProperties, rootProject);
+        Properties globalCustomProps = loadPropertiesFile(globalCustomProperties, rootProject);
+        Properties properties = new Properties();
+        properties.putAll(projectCustomProps);
+        properties.putAll(globalCustomProps);
+        return properties;
+    }
+
+    private static Properties loadPropertiesFile(String propertiesFilePath, Project rootProject) {
         Properties workspaceDefinedVersions = new Properties();
-        String projectDir = rootProject.getProjectDir().getAbsolutePath() + File.separator + "versions.properties";
-        try (FileReader fr = new FileReader(projectDir)) {
+        try (FileReader fr = new FileReader(propertiesFilePath)) {
             workspaceDefinedVersions.load(fr);
         } catch (FileNotFoundException e) {
-            rootProject.getLogger().info("versions.properties not found inside the workspace.");
+            rootProject.getLogger().info(propertiesFilePath+" not found inside the workspace.");
         } catch (Exception t) {
             t.printStackTrace();
         }
