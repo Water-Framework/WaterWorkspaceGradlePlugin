@@ -175,6 +175,8 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                 filePath = filePath.replace(File.separator + "build.gradle", "");
                 String modulesRelativePath = transformInGradlePath(filePath.substring(filePath.indexOf(modulesPath) + modulesPath.length()));
                 String module = modulesRelativePath;
+                if(module.startsWith(File.separator))
+                    module = module.substring(1);
                 log.info("Before Adding project: " + module);
                 includeProjectIntoWorkspace(settings, module);
             });
