@@ -164,6 +164,7 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                         return FileVisitResult.SKIP_SIBLINGS;
                     }else if (file.isFile() && file.getName().endsWith("build.gradle") && !file.getParent().equalsIgnoreCase(modulesPath)) {
                         //adding project only for children projects not the one containing settings.xml which is automatically added by gradle
+                        log.info("Found build gradle project: " + file.getPath());
                         projectsFound.add(file.getPath());
                     }
                     return FileVisitResult.CONTINUE;
@@ -174,6 +175,7 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                 filePath = filePath.replace(File.separator + "build.gradle", "");
                 String modulesRelativePath = transformInGradlePath(filePath.substring(filePath.indexOf(modulesPath) + modulesPath.length()));
                 String module = modulesRelativePath;
+                log.info("Before Adding project: " + module);
                 includeProjectIntoWorkspace(settings, module);
             });
 
