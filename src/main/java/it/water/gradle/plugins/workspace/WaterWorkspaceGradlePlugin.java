@@ -23,10 +23,12 @@ import org.gradle.BuildResult;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
+import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.initialization.Settings;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.plugins.JavaPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,8 @@ import java.util.*;
  */
 public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListener {
     private static Logger log = LoggerFactory.getLogger(WaterWorkspaceGradlePlugin.class);
+    public static final String INCLUDE_IN_JAR_CONF = "implementationInclude";
+    public static final String INCLUDE_IN_JAR_TRANSITIVE_CONF = "implementationIncludeTransitive";
     public static final String WATER_WS_EXTENSION = "WaterWorkspace";
     public static final String EXCLUDE_PROJECT_PATHS;
     public static final String BND_TOOL_DEP_NAME = "biz.aQute.bnd:biz.aQute.bnd.gradle";
@@ -62,15 +66,9 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
     }
 
     private WaterWorskpaceExtension extension;
-    //reduntant in some method but it is needed in others
+    // Redundant in some methods but it is needed in others
     private Settings settings;
 
-    /**
-     * Step 1.
-     * Adding extension to workspace and setup build listener
-     *
-     * @param settings
-     */
     @Override
     public void apply(Settings settings) {
         this.settings = settings;
@@ -78,26 +76,13 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         settings.getGradle().addBuildListener(this);
     }
 
-    /**
-     * Step 2
-     * Adding projects to current build base on system property.
-     *
-     * @param settings
-     */
     @Override
     public void settingsEvaluated(Settings settings) {
         log.info("Settings Evaluated searching for projects...");
         String projectPath = settings.getRootProject().getProjectDir().getPath();
         addProjectsToWorkspace(projectPath);
-
     }
 
-    /**
-     * Step 3
-     * Adding repositories to ROOT project along with BND TOOLS DEP and Karaf Feature DEP
-     *
-     * @param gradle
-     */
     @Override
     public void projectsLoaded(Gradle gradle) {
         Project project = gradle.getRootProject();
@@ -109,15 +94,15 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         log.info("Adding Repo: gradle m2...");
         project.getBuildscript().getRepositories().add(project.getBuildscript().getRepositories().maven(mavenArtifactRepository -> mavenArtifactRepository.setUrl("https://plugins.gradle.org/m2/")));
         this.addBndGradleDep(project.getBuildscript().getDependencies());
+        //adding includeInJar and includeInJarTransitive
+        project.getAllprojects().forEach(childProject -> {
+            if (addConfiguration(childProject, INCLUDE_IN_JAR_CONF, false))
+                includeInJarConfiguration(childProject, INCLUDE_IN_JAR_CONF);
+            if (addConfiguration(childProject, INCLUDE_IN_JAR_TRANSITIVE_CONF, true))
+                includeInJarConfiguration(childProject, INCLUDE_IN_JAR_TRANSITIVE_CONF);
+        });
     }
 
-    /**
-     * Step 4
-     * Adding default task to the root project:
-     * - DepList task, used to identify cycles inside workspace dependencies amd to calculate modularity measures
-     *
-     * @param gradle
-     */
     @Override
     public void projectsEvaluated(Gradle gradle) {
         Project project = gradle.getRootProject();
@@ -127,33 +112,49 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
 
     @Override
     public void buildFinished(BuildResult buildResult) {
-        //do nothing
+        // Do nothing
     }
 
-    /**
-     * @param dependecies
-     */
-    private void addBndGradleDep(DependencyHandler dependecies) {
+    private void addBndGradleDep(DependencyHandler dependencies) {
         log.info("Adding dependency: bndTools...");
         String bndToolsVersion = versionsProperties.getProperty("bndToolVersion");
-        dependecies.add("classpath", BND_TOOL_DEP_NAME + ":" + bndToolsVersion);
+        dependencies.add("classpath", BND_TOOL_DEP_NAME + ":" + bndToolsVersion);
     }
 
-    /**
-     * @param settings
-     * @return
-     */
+    private boolean addConfiguration(Project project, String configurationName, boolean transitive) {
+        log.info("Adding custom dependency configuration: {}...", configurationName);
+        if (project.getConfigurations().stream().noneMatch(configuration -> configuration.getName().equals(configurationName))) {
+            project.getConfigurations().create(configurationName, configuration -> {
+                configuration.setCanBeResolved(true);
+                configuration.setCanBeConsumed(false);
+                configuration.setTransitive(transitive);
+            });
+            log.info("Configuration {} added with properties: canBeResolved(true), canBeConsumed(false), transitive({}).", configurationName, transitive);
+            return true;
+        }
+        log.info("Skipping adding {} because already defined inside the build gradle");
+        return false;
+    }
+
+    private void includeInJarConfiguration(Project project, String configurationName) {
+        project.getTasks().withType(org.gradle.api.tasks.bundling.Jar.class).configureEach(jar -> {
+            log.info("Customizing jar task to include {} dependencies...", configurationName);
+            jar.setDuplicatesStrategy(DuplicatesStrategy.INCLUDE);
+            jar.setZip64(true);
+            jar.from(project.getConfigurations().getByName(configurationName).resolve().stream().map(file -> {
+                return file.isDirectory() ? project.fileTree(file) : project.zipTree(file);
+            }).toArray());
+            log.info("Jar {} customization completed.", configurationName);
+        });
+    }
+
     private WaterWorskpaceExtension addWorkspaceExtension(Settings settings) {
         ExtensionAware extensionAware = (ExtensionAware) settings.getGradle();
         ExtensionContainer extensionContainer = extensionAware.getExtensions();
         return extensionContainer.create(WATER_WS_EXTENSION, WaterWorskpaceExtension.class, settings);
     }
 
-    /**
-     * @param modulesPath
-     */
     private void addProjectsToWorkspace(String modulesPath) {
-
         try {
             List<String> projectsFound = new ArrayList<>();
             Files.walkFileTree(Paths.get(modulesPath), new SimpleFileVisitor<Path>() {
@@ -162,8 +163,7 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                     File file = path.toFile();
                     if (path.toString().matches(EXCLUDE_PROJECT_PATHS)) {
                         return FileVisitResult.SKIP_SIBLINGS;
-                    }else if (file.isFile() && file.getName().endsWith("build.gradle") && !file.getParent().equalsIgnoreCase(modulesPath)) {
-                        //adding project only for children projects not the one containing settings.xml which is automatically added by gradle
+                    } else if (file.isFile() && file.getName().endsWith("build.gradle") && !file.getParent().equalsIgnoreCase(modulesPath)) {
                         log.info("Found build gradle project: " + file.getPath());
                         projectsFound.add(file.getPath());
                     }
@@ -175,38 +175,24 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                 filePath = filePath.replace(File.separator + "build.gradle", "");
                 String modulesRelativePath = transformInGradlePath(filePath.substring(filePath.indexOf(modulesPath) + modulesPath.length()));
                 String module = modulesRelativePath;
-                if(module.startsWith(File.separator))
-                    module = module.substring(1);
+                if (module.startsWith(File.separator)) module = module.substring(1);
                 log.info("Before Adding project: " + module);
                 includeProjectIntoWorkspace(settings, module);
             });
-
         } catch (IOException e) {
             log.error(e.getMessage(), e);
         }
     }
 
-    /**
-     * @param path
-     * @return
-     */
     private String transformInGradlePath(String path) {
         return path.replace("\\\\", ":").replace("/", ":");
     }
 
-    /**
-     * @param projectModulePath
-     */
     private void includeProjectIntoWorkspace(Settings settings, String projectModulePath) {
         log.info("Including {}", projectModulePath);
         settings.include(projectModulePath);
     }
 
-    /**
-     * Adding task for checking dependencies list
-     *
-     * @param rootProject
-     */
     private void addDepListTask(Project rootProject) {
         Map<String, HashMap<String, Object>> depJson = new HashMap<>();
         log.info("Adding depList task...");
@@ -227,23 +213,17 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                 }));
             });
             String jsonStr = groovy.json.JsonOutput.prettyPrint(JsonOutput.toJson(depJson));
-            // define limits for output in order to be parse correctly
             rootProject.getLogger().lifecycle("-- DEP LIST OUTPUT --");
             rootProject.getLogger().lifecycle(jsonStr);
             rootProject.getLogger().lifecycle("-- END DEP LIST OUTPUT --");
         }));
     }
 
-    /**
-     * @param project
-     */
     private void addKarafFeaturesTask(Project rootProject, Project project) {
         File featuresSrcFile = new File(project.getProjectDir() + File.separator + FEATURES_SRC_FILE_PATH);
-        //adding task to current project
         if (featuresSrcFile.exists() && !project.hasProperty("generateFeatures")) {
             addTaskToFeaturesProject(project);
         }
-        //search for children projects
         if (project.getSubprojects() != null && !project.getSubprojects().isEmpty()) {
             project.getSubprojects().forEach(subproject -> addKarafFeaturesTask(rootProject, subproject));
         }
@@ -274,14 +254,12 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
     }
 
     private void defineDefaultProperties(Project project) {
-        //adding gradle plugin defined version
         log.info("Updating global properties...");
         WaterGradleWorkspaceUtil.getAllDefinedVersions().stream().forEach(propertyName -> {
             log.info("Setting global Property : {}  =  {}", propertyName, WaterGradleWorkspaceUtil.getProperty(propertyName));
             project.getExtensions().getExtraProperties().set(propertyName, WaterGradleWorkspaceUtil.getProperty(propertyName));
         });
         log.info("Overriding props with workspace ones...");
-        //overriding props with those specified inside the workspace
         WaterGradleWorkspaceUtil.getWorkspaceDefinedVersions(project).stream().forEach(propertyName -> {
             log.info("Setting Custom Workspace Property : {} = {}", propertyName, WaterGradleWorkspaceUtil.getWorkspaceDefinedProperty(project, propertyName));
             project.getExtensions().getExtraProperties().set(propertyName, WaterGradleWorkspaceUtil.getWorkspaceDefinedProperty(project, propertyName));
