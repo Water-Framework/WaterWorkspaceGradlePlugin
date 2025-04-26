@@ -28,7 +28,6 @@ import org.gradle.api.initialization.Settings;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.ExtensionContainer;
-import org.gradle.api.plugins.JavaPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,10 +95,19 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         this.addBndGradleDep(project.getBuildscript().getDependencies());
         //adding includeInJar and includeInJarTransitive
         project.getAllprojects().forEach(childProject -> {
-            if (addConfiguration(childProject, INCLUDE_IN_JAR_CONF, false))
+            if (addConfiguration(childProject, INCLUDE_IN_JAR_CONF, false)) {
                 includeInJarConfiguration(childProject, INCLUDE_IN_JAR_CONF);
+                extendConfiguration(childProject, "compileClasspath", INCLUDE_IN_JAR_CONF, "java");
+                extendConfiguration(childProject, "runtimeClasspath", INCLUDE_IN_JAR_CONF, "java");
+                extendConfiguration(childProject, "testCompileClasspath", INCLUDE_IN_JAR_CONF, "java");
+                extendConfiguration(childProject, "testRuntimeClasspath", INCLUDE_IN_JAR_CONF, "java");
+            }
             if (addConfiguration(childProject, INCLUDE_IN_JAR_TRANSITIVE_CONF, true))
                 includeInJarConfiguration(childProject, INCLUDE_IN_JAR_TRANSITIVE_CONF);
+            extendConfiguration(childProject, "compileClasspath", INCLUDE_IN_JAR_TRANSITIVE_CONF, "java");
+            extendConfiguration(childProject, "runtimeClasspath", INCLUDE_IN_JAR_TRANSITIVE_CONF, "java");
+            extendConfiguration(childProject, "testCompileClasspath", INCLUDE_IN_JAR_TRANSITIVE_CONF, "java");
+            extendConfiguration(childProject, "testRuntimeClasspath", INCLUDE_IN_JAR_TRANSITIVE_CONF, "java");
         });
     }
 
@@ -146,6 +154,21 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
             }).toArray());
             log.info("Jar {} customization completed.", configurationName);
         });
+    }
+
+    private void extendConfiguration(Project project, String configuration, String extendFrom, String requiredPlugin) {
+        if (requiredPlugin != null && !project.getPluginManager().hasPlugin(requiredPlugin)) {
+            log.info("Extending with plugin {} for project {}", requiredPlugin, project.getName());
+            project.getPluginManager().apply(requiredPlugin);
+        }
+        boolean existConf = project.getConfigurations().stream().anyMatch(conf -> conf.getName().equals(configuration));
+        boolean existExtendConf = project.getConfigurations().stream().anyMatch(conf -> conf.getName().equals(extendFrom));
+        if (existConf && existExtendConf) {
+            log.info("Extending {} configuration with {} for project {}", configuration, extendFrom, project.getName());
+            project.getConfigurations().getByName(configuration).extendsFrom(project.getConfigurations().getByName(extendFrom));
+        } else {
+            log.info("No configuration found {} with extension {} for project {}", configuration, extendFrom, project.getName());
+        }
     }
 
     private WaterWorskpaceExtension addWorkspaceExtension(Settings settings) {
