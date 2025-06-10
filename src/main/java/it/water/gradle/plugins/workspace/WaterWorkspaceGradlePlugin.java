@@ -64,6 +64,7 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         }
     }
 
+    @SuppressWarnings("unused")
     private WaterWorskpaceExtension extension;
     // Redundant in some methods but it is needed in others
     private Settings settings;
@@ -223,14 +224,16 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
             Set<Project> subProjects = rootProject.getSubprojects();
             subProjects.stream().forEach(p -> {
                 String projectName = p.getGroup() + ":" + p.getName() + ":" + p.getVersion();
-                String parentProjectName = p.getParent().getGroup() + ":" + p.getParent().getName() + ":" + p.getParent().getVersion();
-                if (depJson.get(projectName) == null) {
+                if (depJson.get(projectName) == null && p.getParent() != null) {
+                    @SuppressWarnings("null")
+                    String parentProjectName = p.getParent().getGroup() + ":" + p.getParent().getName() + ":" + p.getParent().getVersion();
                     depJson.put(projectName, new HashMap<>());
                     depJson.get(projectName).put("parent", parentProjectName);
                     depJson.get(projectName).put("dependencies", new ArrayList<String>());
                     depJson.get(projectName).put("path", p.getBuildFile().getPath().replace("/build.gradle", ""));
                 }
                 p.getConfigurations().stream().forEach(conf -> conf.getDependencies().stream().forEach(it -> {
+                    @SuppressWarnings("unchecked")
                     List<String> depList = (List<String>) depJson.get(projectName).get("dependencies");
                     depList.add(it.getGroup() + ":" + it.getName() + ":" + it.getVersion());
                 }));

@@ -41,6 +41,7 @@ class WaterGradlePluginTest {
 
     private Project testProject;
 
+    @SuppressWarnings("unused")
     private Project test2Project;
 
 
