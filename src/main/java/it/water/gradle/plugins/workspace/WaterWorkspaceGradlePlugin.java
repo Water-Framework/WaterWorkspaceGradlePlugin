@@ -22,12 +22,17 @@ import org.gradle.BuildListener;
 import org.gradle.BuildResult;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.file.DuplicatesStrategy;
+import org.gradle.api.file.FileTree;
+import org.gradle.api.file.FileVisitDetails;
+import org.gradle.api.file.FileVisitor;
 import org.gradle.api.initialization.Settings;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.jvm.tasks.Jar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.Callable;
 
 /**
  * @Author Aristide Cittadino
@@ -148,12 +154,46 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
     private void includeInJarConfiguration(Project project, String configurationName) {
         project.getTasks().withType(org.gradle.api.tasks.bundling.Jar.class).configureEach(jar -> {
             log.info("Customizing jar task to include {} dependencies...", configurationName);
+            Configuration config = project.getConfigurations().getByName(configurationName);
             jar.setDuplicatesStrategy(DuplicatesStrategy.INCLUDE);
             jar.setZip64(true);
-            jar.from(project.getConfigurations().getByName(configurationName).resolve().stream().map(file -> {
-                return file.isDirectory() ? project.fileTree(file) : project.zipTree(file);
-            }).toArray());
+            setupAnnotationMerges(jar, project, INCLUDE_IN_JAR_CONF, INCLUDE_IN_JAR_TRANSITIVE_CONF);
+            jar.from((Callable<Object>) () -> config.resolve().stream().map(file -> file.isDirectory() ? project.fileTree(file) : project.zipTree(file)).toArray());
             log.info("Jar {} customization completed.", configurationName);
+        });
+    }
+
+    public void setupAnnotationMerges(Jar jar, Project project, String... configNames) {
+        log.info("Starting annotation check for project {}", project.getName());
+        jar.doFirst(task -> {
+            for (String configName : configNames) {
+                for (File file : project.getConfigurations().getByName(configName).getFiles()) {
+                    FileTree tree = project.zipTree(file).matching(pattern -> pattern.include("META-INF/annotations/*"));
+                    tree.visit(new FileVisitor() {
+                        @Override
+                        public void visitDir(FileVisitDetails dirDetails) {
+                            // do nothing
+                        }
+
+                        @Override
+                        public void visitFile(FileVisitDetails fileDetails) {
+                            String annotationsPath = project.getBuildDir() + "/classes/java/main/META-INF/annotations";
+                            File destFile = new File(annotationsPath, fileDetails.getName());
+                            log.info("Adding Annotation {}", destFile.getName());
+                            try {
+                                //load current content
+                                byte[] content = Files.readAllBytes(fileDetails.getFile().toPath());
+                                log.debug("Appending Water Framework Annotation {}", new String(content));
+                                //append to destination
+                                Files.write(destFile.toPath(), content,
+                                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error while adding annotation: " + fileDetails.getFile(), e);
+                            }
+                        }
+                    });
+                }
+            }
         });
     }
 
