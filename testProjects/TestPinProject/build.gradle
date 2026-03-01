@@ -1,0 +1,2 @@
+// Root project — no waterDescriptor (root projects typically don't declare descriptors)
+apply plugin: 'java'

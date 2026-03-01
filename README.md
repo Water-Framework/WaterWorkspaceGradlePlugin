@@ -101,6 +101,109 @@ Generates a Karaf `features.xml` file from a `features-src.xml` template. The te
 ./gradlew generateFeatures
 ```
 
+## Module PIN Descriptor (`waterPins`)
+
+The plugin registers a `waterPins` DSL extension on every sub-project that lets modules declare their **property-group contracts** (PINs). A PIN is a named group of configuration properties that one module provides (output) and another module consumes (input).
+
+### `waterPins` DSL
+
+```groovy
+// In any module's build.gradle
+waterPins {
+    moduleId    = 'it.water.user'        // logical module identifier
+    displayName = 'User Service'         // human-readable name
+
+    output {
+        // Standard PIN from the built-in catalog:
+        standardPin 'jdbc'               // expands to it.water.persistence.jdbc
+
+        // Custom PIN with explicit property schema:
+        pin('it.water.integration.authentication-issuer') {
+            property('water.authentication.service.issuer') {
+                required     = true
+                defaultValue = 'water'
+                description  = 'Issuer name for JWT tokens'
+            }
+        }
+
+        // Extend a standard PIN with extra module-specific properties:
+        standardPin('jdbc') {
+            property('db.schema') { required = false; defaultValue = 'public' }
+        }
+    }
+
+    input {
+        standardPin 'jdbc'                                      // required=true (from catalog)
+        standardPin('api-gateway') { required = false }         // explicit optional override
+        pin 'it.water.integration.authentication-issuer'        // required by default
+        pin('it.water.service-discovery') { required = false }  // explicit optional
+    }
+}
+```
+
+Modules that declare no `waterPins.moduleId` are skipped silently — no task is registered and no descriptor is published.
+
+### Standard PIN catalog
+
+| Shorthand | PIN id | Required |
+|-----------|--------|----------|
+| `jdbc` | `it.water.persistence.jdbc` | true |
+| `api-gateway` | `it.water.api-gateway` | false |
+| `service-discovery` | `it.water.service-discovery` | false |
+| `cluster-coordinator` | `it.water.cluster.coordinator` | false |
+| `authentication-issuer` | `it.water.integration.authentication-issuer` | true |
+
+### `generateWaterDescriptor` task
+
+Automatically registered by the plugin on every sub-project with a valid `waterPins.moduleId`. It:
+
+1. Serializes the `waterPins` declaration into a pretty-printed JSON file at `build/water/<artifactId>-<version>.water.json`.
+2. Registers the file as a Maven publication artifact (`extension = water.json`, no classifier) on any `MavenPublication` defined in the project.
+
+```bash
+# Generate descriptors for all modules that declare waterPins
+./gradlew generateWaterDescriptor
+
+# Publish JARs + descriptors to the local Maven repository
+./gradlew publishToMavenLocal
+```
+
+The descriptor artifact is resolvable as:
+
+```groovy
+dependencies {
+    waterDescriptor 'it.water.repository:JpaRepository-service:3.0.0@water.json'
+}
+```
+
+### `water.json` schema
+
+```json
+{
+  "schemaVersion": "1.0",
+  "artifactId": "<groupId>:<artifactId>:<version>",
+  "moduleId": "it.water.<module>",
+  "displayName": "Module Display Name",
+  "pins": {
+    "output": [
+      {
+        "id": "it.water.persistence.jdbc",
+        "required": true,
+        "properties": [
+          { "key": "db.host",     "required": true,  "sensitive": false, "defaultValue": "" },
+          { "key": "db.password", "required": true,  "sensitive": true,  "defaultValue": "" }
+        ]
+      }
+    ],
+    "input": [
+      { "id": "it.water.api-gateway", "required": false }
+    ]
+  }
+}
+```
+
+---
+
 ## Build Lifecycle Hooks
 
 The plugin hooks into Gradle's build lifecycle:
@@ -108,8 +211,8 @@ The plugin hooks into Gradle's build lifecycle:
 | Hook | Action |
 |---|---|
 | `settingsEvaluated` | Discovers and includes all projects in the workspace |
-| `projectsLoaded` | Configures repositories (Maven Central, Local, Gradle Plugin Portal) |
-| `projectsEvaluated` | Adds `depList` and `generateFeatures` tasks, configures JAR packaging |
+| `projectsLoaded` | Configures repositories (Maven Central, Local, Gradle Plugin Portal); registers `waterPins` extension on all projects |
+| `projectsEvaluated` | Adds `depList`, `generateFeatures`, and `generateWaterDescriptor` tasks; configures JAR packaging; wires descriptor to Maven publications |
 
 ## Project Discovery
 

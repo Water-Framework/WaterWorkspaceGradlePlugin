@@ -1,0 +1,20 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+publishing {
+    publications {
+        water(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+waterDescriptor {
+    moduleId    = 'it.water.test.service.spring'
+    displayName = 'Test Service Spring Module'
+    description = 'Spring variant of the test service module'
+    inheritsFrom project(':TestPinServiceModule')
+}

@@ -1,0 +1,36 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+publishing {
+    publications {
+        water(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+waterDescriptor {
+    moduleId    = 'it.water.test.module'
+    displayName = 'Test Module'
+    description = 'Test module for PIN descriptor integration tests'
+
+    output {
+        standardPin 'jdbc'
+        pin('it.water.integration.authentication-issuer') {
+            property('water.authentication.service.issuer') {
+                required     = true
+                defaultValue = 'water'
+                description  = 'Issuer name for JWT tokens'
+            }
+        }
+    }
+
+    input {
+        standardPin 'jdbc'
+        standardPin('api-gateway') { required = false }
+        pin 'it.water.integration.authentication-issuer'
+    }
+}

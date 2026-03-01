@@ -1,0 +1,33 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+publishing {
+    publications {
+        water(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+waterDescriptor {
+    moduleId    = 'it.water.test.service'
+    displayName = 'Test Service Module'
+    description = 'Test service module for inheritance integration tests'
+
+    output {
+        pin('it.water.integration.authentication-issuer') {
+            property('water.authentication.service.issuer') {
+                required     = true
+                defaultValue = 'it.water.test.model.TestUser'
+                description  = 'Issuer name for JWT tokens'
+            }
+        }
+    }
+
+    input {
+        standardPin 'jdbc'
+    }
+}

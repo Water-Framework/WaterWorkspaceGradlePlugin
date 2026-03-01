@@ -17,6 +17,11 @@
 package it.water.gradle.plugins.workspace;
 
 import groovy.json.JsonOutput;
+import it.water.gradle.plugins.workspace.pin.GenerateWaterDescriptorTask;
+import it.water.gradle.plugins.workspace.pin.InputPinSpec;
+import it.water.gradle.plugins.workspace.pin.OutputPinSpec;
+import it.water.gradle.plugins.workspace.pin.PinPropertySpec;
+import it.water.gradle.plugins.workspace.pin.WaterPinsExtension;
 import it.water.gradle.plugins.workspace.util.WaterGradleWorkspaceUtil;
 import org.gradle.BuildListener;
 import org.gradle.BuildResult;
@@ -32,6 +37,10 @@ import org.gradle.api.initialization.Settings;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.publish.PublishingExtension;
+import org.gradle.api.publish.maven.MavenPublication;
+import org.gradle.api.publish.maven.plugins.MavenPublishPlugin;
+import org.gradle.api.tasks.TaskProvider;
 import org.gradle.jvm.tasks.Jar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +111,9 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         this.addBndGradleDep(project.getBuildscript().getDependencies());
         //adding includeInJar and includeInJarTransitive
         project.getAllprojects().forEach(childProject -> {
+            // Register waterDescriptor extension on every sub-project so modules can declare descriptor
+            childProject.getExtensions().create("waterDescriptor", WaterPinsExtension.class);
+
             if (addConfiguration(childProject, INCLUDE_IN_JAR_CONF, false)) {
                 includeInJarConfiguration(childProject, INCLUDE_IN_JAR_CONF);
                 extendConfiguration(childProject, "compileClasspath", INCLUDE_IN_JAR_CONF, "java");
@@ -123,6 +135,7 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
         Project project = gradle.getRootProject();
         addDepListTask(project);
         addKarafFeaturesTask(project, project);
+        project.getAllprojects().forEach(this::addWaterDescriptorTask);
     }
 
     @Override
@@ -317,6 +330,69 @@ public class WaterWorkspaceGradlePlugin implements Plugin<Settings>, BuildListen
                         e.printStackTrace();
                     }
                 }));
+    }
+
+    private void addWaterDescriptorTask(Project project) {
+        WaterPinsExtension ext = project.getExtensions().findByType(WaterPinsExtension.class);
+        if (ext == null || ext.getModuleId() == null || ext.getModuleId().isBlank()) {
+            return; // module has no waterDescriptor declaration — skip
+        }
+
+        // Collect inherited PINs and properties first, then merge own declarations on top
+        List<OutputPinSpec> outputPins = new ArrayList<>();
+        List<InputPinSpec> inputPins = new ArrayList<>();
+        List<PinPropertySpec> moduleProperties = new ArrayList<>();
+        for (Project parentProject : ext.getInheritsFromProjects()) {
+            WaterPinsExtension parentExt = parentProject.getExtensions().findByType(WaterPinsExtension.class);
+            if (parentExt != null) {
+                outputPins.addAll(parentExt.getOutput().getPins());
+                inputPins.addAll(parentExt.getInput().getPins());
+                moduleProperties.addAll(parentExt.getProperties().getProperties());
+                log.info("Project {} inherits {} output PIN(s), {} input PIN(s) and {} propert(y/ies) from {}",
+                        project.getName(),
+                        parentExt.getOutput().getPins().size(),
+                        parentExt.getInput().getPins().size(),
+                        parentExt.getProperties().getProperties().size(),
+                        parentProject.getName());
+            }
+        }
+        outputPins.addAll(ext.getOutput().getPins());
+        inputPins.addAll(ext.getInput().getPins());
+        moduleProperties.addAll(ext.getProperties().getProperties());
+
+        String artifactId = project.getGroup() + ":" + project.getName() + ":" + project.getVersion();
+        String fileName   = "water-descriptor.json";
+
+        String descriptorJson = GenerateWaterDescriptorTask.buildDescriptorJson(
+                artifactId,
+                ext.getModuleId(),
+                ext.getDisplayName() != null ? ext.getDisplayName() : project.getName(),
+                ext.getDescription() != null ? ext.getDescription() : "",
+                outputPins,
+                inputPins,
+                moduleProperties);
+
+        TaskProvider<GenerateWaterDescriptorTask> genTask = project.getTasks()
+                .register("generateWaterDescriptor", GenerateWaterDescriptorTask.class, t -> {
+                    t.setGroup("water");
+                    t.setDescription("Generates the Water PIN descriptor for " + project.getName());
+                    t.getDescriptorJson().set(descriptorJson);
+                    t.getOutputFile().set(
+                            project.getLayout().getBuildDirectory().file("water/" + fileName));
+                });
+
+        // Wire as Maven publication artifact (extension water.json, no classifier)
+        project.getPlugins().withType(MavenPublishPlugin.class, ignored ->
+                project.getExtensions().getByType(PublishingExtension.class)
+                        .getPublications()
+                        .withType(MavenPublication.class, pub ->
+                                pub.artifact(
+                                        genTask.flatMap(GenerateWaterDescriptorTask::getOutputFile),
+                                        a -> a.setExtension("water.json"))
+                        )
+        );
+
+        log.info("Registered generateWaterDescriptor task for project: {}", project.getName());
     }
 
     private void defineDefaultProperties(Project project) {

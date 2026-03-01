@@ -1,0 +1,2 @@
+// Module without waterDescriptor — generateWaterDescriptor must NOT be registered.
+apply plugin: 'java'
