@@ -72,7 +72,9 @@ public class PinInputContainer {
         if (base == null)
             throw new GradleException("Unknown standard Water PIN: '" + shorthand + "'. " +
                     "Available: jdbc, api-gateway, service-discovery, cluster-coordinator, authentication-issuer");
-        pins.add(new InputPinSpec(base.getId(), base.isRequired()));
+        InputPinSpec spec = new InputPinSpec(base.getId(), base.isRequired());
+        spec.addProperties(base.getProperties());
+        pins.add(spec);
     }
 
     /**
@@ -89,6 +91,7 @@ public class PinInputContainer {
             throw new GradleException("Unknown standard Water PIN: '" + shorthand + "'. " +
                     "Available: jdbc, api-gateway, service-discovery, cluster-coordinator, authentication-issuer");
         InputPinSpec spec = new InputPinSpec(base.getId(), base.isRequired());
+        spec.addProperties(base.getProperties());
         ClosureConfigurer.configure(spec, action);
         pins.add(spec);
     }
@@ -100,6 +103,7 @@ public class PinInputContainer {
             throw new GradleException("Unknown standard Water PIN: '" + shorthand + "'. " +
                     "Available: jdbc, api-gateway, service-discovery, cluster-coordinator, authentication-issuer");
         InputPinSpec spec = new InputPinSpec(base.getId(), base.isRequired());
+        spec.addProperties(base.getProperties());
         ClosureConfigurer.configure(spec, closure);
         pins.add(spec);
     }

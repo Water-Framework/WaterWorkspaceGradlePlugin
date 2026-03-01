@@ -141,6 +141,19 @@ public abstract class GenerateWaterDescriptorTask extends DefaultTask {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id",       pin.getId());
             m.put("required", pin.isRequired());
+
+            List<Map<String, Object>> props = new ArrayList<>();
+            for (PinPropertySpec prop : pin.getProperties()) {
+                Map<String, Object> pm = new LinkedHashMap<>();
+                pm.put("key",          prop.getKey());
+                pm.put("name",         prop.getName().isEmpty() ? prop.getKey() : prop.getName());
+                pm.put("required",     prop.isRequired());
+                pm.put("sensitive",    prop.isSensitive());
+                pm.put("defaultValue", prop.getDefaultValue());
+                pm.put("description",  prop.getDescription());
+                props.add(pm);
+            }
+            m.put("properties", props);
             list.add(m);
         }
         return list;

@@ -15,6 +15,10 @@
  */
 package it.water.gradle.plugins.workspace.pin;
 
+import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Describes an input PIN declared by a module — a named group of properties
  * that this module requires to be satisfied by another module's output PIN.
@@ -23,6 +27,7 @@ public class InputPinSpec {
 
     private final String id;
     private boolean required;
+    private final List<PinPropertySpec> properties = new ArrayList<>();
 
     public InputPinSpec(String id, boolean required) {
         this.id = id;
@@ -33,4 +38,21 @@ public class InputPinSpec {
 
     public boolean isRequired() { return required; }
     public void setRequired(boolean required) { this.required = required; }
+
+    /** Copy properties from an OutputPinSpec (used when the same standard PIN is declared as input). */
+    public void addProperties(List<PinPropertySpec> source) {
+        for (PinPropertySpec p : source) {
+            PinPropertySpec copy = new PinPropertySpec(p.getKey());
+            copy.setName(p.getName());
+            copy.setRequired(p.isRequired());
+            copy.setSensitive(p.isSensitive());
+            copy.setDefaultValue(p.getDefaultValue());
+            copy.setDescription(p.getDescription());
+            properties.add(copy);
+        }
+    }
+
+    public List<PinPropertySpec> getProperties() {
+        return Collections.unmodifiableList(properties);
+    }
 }
