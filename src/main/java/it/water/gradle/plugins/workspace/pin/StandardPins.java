@@ -56,53 +56,53 @@ public class StandardPins {
     private static OutputPinSpec jdbc() {
         OutputPinSpec p = new OutputPinSpec("it.water.persistence.jdbc");
         p.setRequired(true);
-        p.addProperty("db.host",      true,  false, "",     "Database hostname");
-        p.addProperty("db.port",      true,  false, "5432", "Database port");
-        p.addProperty("db.username",  true,  false, "",     "Database username");
-        p.addProperty("db.password",  true,  true,  "",     "Database password");
-        p.addProperty("db.pool.size", false, false, "10",   "Connection pool size");
+        p.addProperty("db.host",      "Host",             true,  false, "",     "Database hostname");
+        p.addProperty("db.port",      "Port",             true,  false, "5432", "Database port");
+        p.addProperty("db.username",  "Username",         true,  false, "",     "Database username");
+        p.addProperty("db.password",  "Password",         true,  true,  "",     "Database password");
+        p.addProperty("db.pool.size", "Connection Pool Size", false, false, "10", "Connection pool size");
         return p;
     }
 
     private static OutputPinSpec apiGateway() {
         OutputPinSpec p = new OutputPinSpec("it.water.api-gateway");
         p.setRequired(false);
-        p.addProperty("gateway.base.url",       true,  false, "",      "API Gateway base URL");
-        p.addProperty("gateway.admin.url",      false, false, "",      "API Gateway admin URL");
-        p.addProperty("gateway.timeout.millis", false, false, "30000", "Connection timeout in milliseconds");
+        p.addProperty("gateway.base.url",       "Base URL",          true,  false, "",      "API Gateway base URL");
+        p.addProperty("gateway.admin.url",      "Admin URL",         false, false, "",      "API Gateway admin URL");
+        p.addProperty("gateway.timeout.millis", "Timeout (ms)",      false, false, "30000", "Connection timeout in milliseconds");
         return p;
     }
 
     private static OutputPinSpec serviceDiscovery() {
         OutputPinSpec p = new OutputPinSpec("it.water.service-discovery");
         p.setRequired(false);
-        p.addProperty("service.name",                  true,  false, "",                  "Logical service name");
-        p.addProperty("service.instance-id",           false, false, "",                  "Unique instance ID (auto UUID if empty)");
-        p.addProperty("service.endpoint",              true,  false, "",                  "Service endpoint URL");
-        p.addProperty("service.protocol",              false, false, "HTTP",               "Communication protocol");
-        p.addProperty("service.health-check.endpoint", false, false, "/actuator/health",  "Health check endpoint path");
-        p.addProperty("service.health-check.interval", false, false, "30",                "Health check interval in seconds");
+        p.addProperty("service.name",                  "Service Name",          true,  false, "",                 "Logical service name");
+        p.addProperty("service.instance-id",           "Instance ID",           false, false, "",                 "Unique instance ID (auto UUID if empty)");
+        p.addProperty("service.endpoint",              "Service Endpoint",      true,  false, "",                 "Service endpoint URL");
+        p.addProperty("service.protocol",              "Protocol",              false, false, "HTTP",              "Communication protocol");
+        p.addProperty("service.health-check.endpoint", "Health Check Path",     false, false, "/actuator/health", "Health check endpoint path");
+        p.addProperty("service.health-check.interval", "Health Check Interval", false, false, "30",               "Health check interval in seconds");
         return p;
     }
 
     private static OutputPinSpec clusterCoordinator() {
         OutputPinSpec p = new OutputPinSpec("it.water.cluster.coordinator");
         p.setRequired(false);
-        p.addProperty("it.water.connectors.zookeeper.url",       true,  false, "localhost:2181",          "Zookeeper ensemble connection string");
-        p.addProperty("it.water.connectors.zookeeper.base.path", false, false, "/water-framework/layers", "Zookeeper base path for Water cluster data");
-        p.addProperty("water.core.cluster.node.id",              true,  false, "",                        "Cluster node unique ID");
-        p.addProperty("water.core.cluster.node.layer.id",        true,  false, "",                        "Cluster layer identifier");
-        p.addProperty("water.core.cluster.node.host",            false, false, "",                        "Node hostname");
-        p.addProperty("water.core.cluster.node.ip",              false, false, "",                        "Node IP address");
-        p.addProperty("water.core.cluster.node.use-ip",          false, false, "false",                   "Use IP instead of hostname for cluster registration");
-        p.addProperty("water.core.cluster.mode.enabled",         false, false, "false",                   "Enable cluster mode");
+        p.addProperty("it.water.connectors.zookeeper.url",       "ZooKeeper URL",       true,  false, "localhost:2181",          "Zookeeper ensemble connection string");
+        p.addProperty("it.water.connectors.zookeeper.base.path", "ZooKeeper Base Path", false, false, "/water-framework/layers", "Zookeeper base path for Water cluster data");
+        p.addProperty("water.core.cluster.node.id",              "Node ID",             true,  false, "",                        "Cluster node unique ID");
+        p.addProperty("water.core.cluster.node.layer.id",        "Layer ID",            true,  false, "",                        "Cluster layer identifier");
+        p.addProperty("water.core.cluster.node.host",            "Node Hostname",       false, false, "",                        "Node hostname");
+        p.addProperty("water.core.cluster.node.ip",              "Node IP",             false, false, "",                        "Node IP address");
+        p.addProperty("water.core.cluster.node.use-ip",          "Use IP",              false, false, "false",                   "Use IP instead of hostname for cluster registration");
+        p.addProperty("water.core.cluster.mode.enabled",         "Cluster Mode",        false, false, "false",                   "Enable cluster mode");
         return p;
     }
 
     private static OutputPinSpec authenticationIssuer() {
         OutputPinSpec p = new OutputPinSpec("it.water.integration.authentication-issuer");
         p.setRequired(true);
-        p.addProperty("water.authentication.service.issuer", true, false, "water", "Issuer name for JWT tokens");
+        p.addProperty("water.authentication.service.issuer", "Issuer Name", true, false, "water", "Issuer name for JWT tokens");
         return p;
     }
 }

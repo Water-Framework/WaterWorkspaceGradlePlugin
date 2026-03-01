@@ -99,6 +99,7 @@ public abstract class GenerateWaterDescriptorTask extends DefaultTask {
         for (PinPropertySpec prop : moduleProperties) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("key",          prop.getKey());
+            m.put("name",         prop.getName().isEmpty() ? prop.getKey() : prop.getName());
             m.put("type",         prop.getType());
             m.put("envVar",       prop.getEnvVar());
             m.put("required",     prop.isRequired());
@@ -121,9 +122,11 @@ public abstract class GenerateWaterDescriptorTask extends DefaultTask {
             for (PinPropertySpec prop : pin.getProperties()) {
                 Map<String, Object> pm = new LinkedHashMap<>();
                 pm.put("key",          prop.getKey());
+                pm.put("name",         prop.getName().isEmpty() ? prop.getKey() : prop.getName());
                 pm.put("required",     prop.isRequired());
                 pm.put("sensitive",    prop.isSensitive());
                 pm.put("defaultValue", prop.getDefaultValue());
+                pm.put("description",  prop.getDescription());
                 props.add(pm);
             }
             m.put("properties", props);

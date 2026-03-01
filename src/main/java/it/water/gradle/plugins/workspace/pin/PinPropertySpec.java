@@ -21,6 +21,7 @@ package it.water.gradle.plugins.workspace.pin;
 public class PinPropertySpec {
 
     private String key;
+    private String name = "";
     private boolean required = true;
     private boolean sensitive = false;
     private String defaultValue = "";
@@ -33,6 +34,9 @@ public class PinPropertySpec {
     }
 
     public String getKey() { return key; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
     public boolean isRequired() { return required; }
     public void setRequired(boolean required) { this.required = required; }

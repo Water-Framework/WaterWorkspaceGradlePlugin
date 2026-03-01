@@ -51,8 +51,9 @@ public class OutputPinSpec {
     }
 
     /** Used internally by StandardPins to build the catalog. */
-    void addProperty(String key, boolean required, boolean sensitive, String defaultValue, String description) {
+    void addProperty(String key, String name, boolean required, boolean sensitive, String defaultValue, String description) {
         PinPropertySpec spec = new PinPropertySpec(key);
+        spec.setName(name);
         spec.setRequired(required);
         spec.setSensitive(sensitive);
         spec.setDefaultValue(defaultValue);
@@ -66,6 +67,7 @@ public class OutputPinSpec {
         copy.required = this.required;
         for (PinPropertySpec p : this.properties) {
             PinPropertySpec pc = new PinPropertySpec(p.getKey());
+            pc.setName(p.getName());
             pc.setRequired(p.isRequired());
             pc.setSensitive(p.isSensitive());
             pc.setDefaultValue(p.getDefaultValue());
