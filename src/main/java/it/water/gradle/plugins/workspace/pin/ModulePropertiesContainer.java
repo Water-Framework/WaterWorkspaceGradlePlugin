@@ -28,7 +28,7 @@ import java.util.List;
  * <pre>
  * waterDescriptor {
  *     properties {
- *         property('it.water.user.registration.enabled') {
+ *         property('water.user.registration.enabled') {
  *             required     = false
  *             sensitive    = false
  *             defaultValue = 'false'
